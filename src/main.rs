@@ -2,7 +2,6 @@ extern crate rand;
 extern crate rulinalg;
 
 use rand::Rng;
-use rand::seq::SliceRandom;
 use rulinalg::matrix::{Matrix, BaseMatrixMut, BaseMatrix};
 
 /* Math ------------------------------------------ */
@@ -99,37 +98,35 @@ impl NeuralNetwork {
 }
 
 /* Functions ------------------------------------- */
-fn color_predictor((r, g, b): (i32, i32, i32)) -> String {
-    return if r + g + b > 300 { String::from("black") } else { String::from("white") };
-}
-
-fn neuralnet_color_predictor(neuralnet: &mut NeuralNetwork, (r, g, b): (i32, i32, i32)) -> String {
-    let color_inputs: Matrix<f64> = Matrix::new(3, 1, vec!(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0));
-
-    let result: Matrix<f64> = neuralnet.feedforward(color_inputs);
-
-    return if result.data()[0] > result.data()[1] { String::from("black") } else { String::from("white") };
-}
 
 fn main() {
     let mut neuralnet: NeuralNetwork = NeuralNetwork::new(3, 3, 2);
 
-    for _ in 0..10000 {
+    // Exemple :
+    // > There is a training set for color prediction
+    // > The algorithm try to find out wether the color is closer to white or black
+    for _ in 0..50000 {
+        // Here we generate a random color
         let color: (i32, i32, i32) = (rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256));
-        let inputs: Matrix<f64> = Matrix::new(3, 1, vec!(color.0 as f64 / 255.0, color.1 as f64 / 255.0, color.2 as f64 / 255.0));
-        let answer = color_predictor(color);
-        
-        let targets_tuple: (f64, f64) = if answer == "black" { (1.0, 0.0) } else { (0.0, 1.0) };
+        // Here we compute the target that the network has to guess
+        let targets_tuple: (f64, f64) = if color.0 + color.1 + color.2 > 300 { (1.0, 0.0) } else { (0.0, 1.0) };
 
+        // Here we format the color to fit in the neural network
+        let inputs: Matrix<f64> = Matrix::new(3, 1, vec!(color.0 as f64 / 255.0, color.1 as f64 / 255.0, color.2 as f64 / 255.0));
+        // Here we format the target to fit in the neural network
         let targets: Matrix<f64> = Matrix::new(2, 1, vec!(targets_tuple.0, targets_tuple.1));
+        // Training with the given datas
         &neuralnet.train(&inputs, &targets);
     }
 
-    // Testing result
+    // Testing result, cmp the answer and the guess
     for _ in 0..10 {
         let color: (i32, i32, i32) = (rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256));
         println!("color: {:?}", color);
-        println!("predictor: {}", color_predictor(color));
-        println!("neuralnet: {}\n", neuralnet_color_predictor(&mut neuralnet, color));
+        let white_answer: f64 = if color.0 + color.1 + color.2 > 300 { 0.0 } else { 1.0 };
+        let black_answer: f64 = if color.0 + color.1 + color.2 > 300 { 1.0 } else { 0.0 };
+        println!("calculated answer    : {}", if color.0 + color.1 + color.2 > 300 { String::from("black") } else { String::from("white") });
+        let result: Matrix<f64> = neuralnet.feedforward(Matrix::new(3, 1, vec!(color.0 as f64 / 255.0, color.1 as f64 / 255.0, color.2 as f64 / 255.0)));
+        println!("neural network guess : {} | fitness: {}%\n", if result.data()[0] > result.data()[1] { String::from("black") } else { String::from("white") }, 100 - (((result.data()[0] * white_answer + result.data()[1] * black_answer) / 2.0) * 100.0) as i32);
     }
 }
