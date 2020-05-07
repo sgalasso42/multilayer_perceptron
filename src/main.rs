@@ -5,14 +5,6 @@ use rand::Rng;
 use rand::seq::SliceRandom;
 use rulinalg::matrix::{Matrix, BaseMatrixMut, BaseMatrix};
 
-/* Training data --------------------------------- */
-
-#[derive(Debug)]
-struct Data {
-    inputs: Matrix<f64>,
-    targets: Matrix<f64>
-}
-
 /* Math ------------------------------------------ */
 
 fn sigmoid(x: f64) -> f64 {
@@ -21,6 +13,14 @@ fn sigmoid(x: f64) -> f64 {
 
 fn dsigmoid(y: f64) -> f64 {
     return y * (1.0 - y);
+}
+
+/* Data ------------------------------------------ */
+
+#[derive(Debug)]
+struct Data {
+    inputs: Matrix<f64>,
+    targets: Matrix<f64>
 }
 
 /* Neural Network -------------------------------- */
@@ -73,7 +73,6 @@ impl NeuralNetwork {
         let mut outputs_gradients: Matrix<f64> = outputs.apply(&dsigmoid);
         outputs_gradients = outputs_gradients.elemul(&output_errors);
         outputs_gradients = &outputs_gradients * &self.learning_rate;
-        
         // Computing hidden -> outputs deltas
         let hidden_transposed: Matrix<f64> = hidden.transpose();
         let weights_ho_deltas: Matrix<f64> = &outputs_gradients * hidden_transposed;
@@ -96,43 +95,41 @@ impl NeuralNetwork {
         self.weights_ih = &self.weights_ih + &weights_ih_deltas;
         // Update outputs bias
         self.bias_h = &self.bias_h + hidden_gradients;
-
-        // println!("o: {:?}\nt: {:?}\ne: {:?}", outputs, targets, output_errors);
     }
 }
 
 /* Functions ------------------------------------- */
+fn color_predictor((r, g, b): (i32, i32, i32)) -> String {
+    return if r + g + b > 300 { String::from("black") } else { String::from("white") };
+}
+
+fn neuralnet_color_predictor(neuralnet: &mut NeuralNetwork, (r, g, b): (i32, i32, i32)) -> String {
+    let color_inputs: Matrix<f64> = Matrix::new(3, 1, vec!(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0));
+
+    let result: Matrix<f64> = neuralnet.feedforward(color_inputs);
+
+    return if result.data()[0] > result.data()[1] { String::from("black") } else { String::from("white") };
+}
 
 fn main() {
-    let mut neuralnet: NeuralNetwork = NeuralNetwork::new(2, 2, 1);
-    let mut training_data: Vec<Data> = vec![
-        Data {
-            inputs: Matrix::new(2, 1, vec!(0.0, 1.0)),
-            targets: Matrix::new(1, 1, vec!(1.0))
-        },
-        Data {
-            inputs: Matrix::new(2, 1, vec!(1.0, 0.0)),
-            targets: Matrix::new(1, 1, vec!(1.0))
-        },
-        Data {
-            inputs: Matrix::new(2, 1, vec!(0.0, 0.0)),
-            targets: Matrix::new(1, 1, vec!(0.0))
-        },
-        Data {
-            inputs: Matrix::new(2, 1, vec!(1.0, 1.0)),
-            targets: Matrix::new(1, 1, vec!(0.0))
-        }
-    ];
-    
+    let mut neuralnet: NeuralNetwork = NeuralNetwork::new(3, 3, 2);
+
     for _ in 0..10000 {
-        training_data.shuffle(&mut rand::thread_rng());
-        for data in training_data.iter() {
-            &neuralnet.train(&data.inputs, &data.targets);
-        }
+        let color: (i32, i32, i32) = (rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256));
+        let inputs: Matrix<f64> = Matrix::new(3, 1, vec!(color.0 as f64 / 255.0, color.1 as f64 / 255.0, color.2 as f64 / 255.0));
+        let answer = color_predictor(color);
+        
+        let targets_tuple: (f64, f64) = if answer == "black" { (1.0, 0.0) } else { (0.0, 1.0) };
+
+        let targets: Matrix<f64> = Matrix::new(2, 1, vec!(targets_tuple.0, targets_tuple.1));
+        &neuralnet.train(&inputs, &targets);
     }
 
-    println!("0 xor 0: {}", neuralnet.feedforward(Matrix::new(2, 1, vec!(0.0, 0.0))));
-    println!("1 xor 1: {}", neuralnet.feedforward(Matrix::new(2, 1, vec!(1.0, 1.0))));
-    println!("0 xor 1: {}", neuralnet.feedforward(Matrix::new(2, 1, vec!(0.0, 1.0))));
-    println!("1 xor 0: {}", neuralnet.feedforward(Matrix::new(2, 1, vec!(1.0, 0.0))));
+    // Testing result
+    for _ in 0..10 {
+        let color: (i32, i32, i32) = (rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256), rand::thread_rng().gen_range(0, 256));
+        println!("color: {:?}", color);
+        println!("predictor: {}", color_predictor(color));
+        println!("neuralnet: {}\n", neuralnet_color_predictor(&mut neuralnet, color));
+    }
 }
