@@ -2,10 +2,12 @@ extern crate rand;
 extern crate rulinalg;
 
 use rand::Rng;
+use rand::seq::SliceRandom;
 use rulinalg::matrix::{Matrix, BaseMatrixMut, BaseMatrix};
 
 /* Training data --------------------------------- */
 
+#[derive(Debug)]
 struct Data {
     inputs: Matrix<f64>,
     targets: Matrix<f64>
@@ -103,7 +105,7 @@ impl NeuralNetwork {
 
 fn main() {
     let mut neuralnet: NeuralNetwork = NeuralNetwork::new(2, 2, 1);
-    let training_data: Vec<Data> = vec![
+    let mut training_data: Vec<Data> = vec![
         Data {
             inputs: Matrix::new(2, 1, vec!(0.0, 1.0)),
             targets: Matrix::new(1, 1, vec!(1.0))
@@ -122,9 +124,11 @@ fn main() {
         }
     ];
     
-    for _ in 0..50000 {
-        let data: &Data = &training_data[rand::thread_rng().gen_range(0, training_data.len())];
-        neuralnet.train(&data.inputs, &data.targets);
+    for _ in 0..10000 {
+        training_data.shuffle(&mut rand::thread_rng());
+        for data in training_data.iter() {
+            &neuralnet.train(&data.inputs, &data.targets);
+        }
     }
 
     println!("0 xor 0: {}", neuralnet.feedforward(Matrix::new(2, 1, vec!(0.0, 0.0))));
